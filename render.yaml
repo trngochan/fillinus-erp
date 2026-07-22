@@ -1,10 +1,9 @@
 services:
-  # ─── Spring Boot Web Service ──────────────────────────────────
+  # ─── Spring Boot Web Service (Docker runtime) ─────────────────
   - type: web
     name: fillinus-erp
+    runtime: docker
     plan: free
-    buildCommand: "./gradlew bootJar -x test"
-    startCommand: "java -Xmx450m -jar build/libs/fillinus-erp.jar"
     healthCheckPath: /api/actuator/health
     envVars:
       - key: JWT_SECRET

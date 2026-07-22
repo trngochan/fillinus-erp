@@ -1,0 +1,9 @@
+.git
+.gradle
+build
+out
+*.log
+.env
+.idea
+.vscode
+docs
