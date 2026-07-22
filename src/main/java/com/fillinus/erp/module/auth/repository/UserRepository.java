@@ -12,4 +12,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
+    /** Used by JwtAuthFilter — avoids loading the full User entity or any lazy relations */
+    boolean existsByUsernameAndIsActive(String username, Boolean isActive);
 }

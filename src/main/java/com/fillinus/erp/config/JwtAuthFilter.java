@@ -1,6 +1,5 @@
 package com.fillinus.erp.config;
 
-import com.fillinus.erp.module.auth.entity.User;
 import com.fillinus.erp.module.auth.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -32,23 +31,35 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String token = extractToken(request);
+        try {
+            String token = extractToken(request);
 
-        if (StringUtils.hasText(token) && jwtUtil.validateToken(token)) {
-            String username = jwtUtil.extractUsername(token);
+            if (StringUtils.hasText(token) && jwtUtil.validateToken(token)) {
+                String username = jwtUtil.extractUsername(token);
 
-            User user = userRepository.findByUsername(username).orElse(null);
-            if (user != null && Boolean.TRUE.equals(user.getIsActive())) {
-                String role = user.getRole() != null ? user.getRole().getName() : "EMPLOYEE";
+                // Verify user still exists and is active — but read role from JWT,
+                // NOT from user.getRole() which would trigger a lazy DB call
+                boolean userActive = userRepository.existsByUsernameAndIsActive(username, true);
 
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                        username,
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                );
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                if (userActive) {
+                    // Role is already embedded in the JWT claim — no lazy loading needed
+                    String role = jwtUtil.extractRole(token);
+                    if (role == null) role = "EMPLOYEE";
+
+                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                            username,
+                            null,
+                            List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                    );
+                    auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                    log.debug("Authenticated user: {} with role: {}", username, role);
+                } else {
+                    log.warn("User not found or inactive: {}", username);
+                }
             }
+        } catch (Exception e) {
+            log.error("Could not set user authentication in security context: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);

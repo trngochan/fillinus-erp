@@ -45,6 +45,11 @@ public class JwtUtil {
         return parseClaims(token).getSubject();
     }
 
+    /** Extract role claim embedded in the token — avoids a DB round-trip */
+    public String extractRole(String token) {
+        return parseClaims(token).get("role", String.class);
+    }
+
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
