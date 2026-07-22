@@ -1,0 +1,21 @@
+# Railway deployment configuration
+# https://docs.railway.app/reference/config-as-code
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "./gradlew bootJar -x test"
+
+[deploy]
+startCommand = "java -jar build/libs/fillinus-erp.jar"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Railway injects DATABASE_URL, PORT automatically from the PostgreSQL plugin.
+# Add the following environment variables in the Railway dashboard:
+#   JWT_SECRET          → strong random secret (min 32 chars)
+#   JWT_EXPIRATION_MS   → 86400000 (24h)
+#   MAIL_HOST           → your SMTP host
+#   MAIL_PORT           → 587
+#   MAIL_USERNAME       → your email
+#   MAIL_PASSWORD       → your app password
+#   APP_BASE_URL        → https://your-app.up.railway.app

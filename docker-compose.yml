@@ -1,0 +1,25 @@
+# ─── Local Development Docker Compose ────────────────────────────────────────
+# Starts a PostgreSQL instance for local development.
+# Usage: docker compose up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fillinus_postgres
+    environment:
+      POSTGRES_DB:       fillinus_erp
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
