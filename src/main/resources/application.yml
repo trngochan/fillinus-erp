@@ -93,3 +93,6 @@ management:
   endpoint:
     health:
       show-details: never
+  health:
+    mail:
+      enabled: false   # Don't check SMTP — credentials not required for health
