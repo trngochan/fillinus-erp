@@ -3,7 +3,10 @@ spring:
     name: fillinus-erp
 
   # ──────────────────────────────────────────
-  # DATABASE — reads from env var (Railway injects DATABASE_URL)
+  # DATABASE — reads from env var
+  # Render injects DATABASE_URL as postgres://user:pass@host/db
+  # Railway injects as postgresql://user:pass@host/db
+  # We configure Spring to parse both formats
   # ──────────────────────────────────────────
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/fillinus_erp}
@@ -11,7 +14,7 @@ spring:
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 5
+      maximum-pool-size: 3
       connection-timeout: 30000
 
   jpa:
@@ -78,3 +81,15 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
+
+# ──────────────────────────────────────────
+# ACTUATOR — Health check for Render
+# ──────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

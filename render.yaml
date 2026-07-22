@@ -1,0 +1,46 @@
+services:
+  # ─── Spring Boot API ──────────────────────────────────────────
+  - type: web
+    name: fillinus-erp
+    runtime: java
+    plan: free
+    buildCommand: "./gradlew bootJar -x test"
+    startCommand: "java -Xmx450m -jar build/libs/fillinus-erp.jar"
+    healthCheckPath: /api/actuator/health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION_MS
+        value: "86400000"
+      - key: APP_BASE_URL
+        value: "https://fillinus-erp.onrender.com"
+      - key: RESET_TOKEN_EXPIRY_MINUTES
+        value: "30"
+      - key: MAIL_HOST
+        value: "smtp.mailtrap.io"
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        value: ""
+      - key: MAIL_PASSWORD
+        value: ""
+      # DATABASE_URL will be set from the database service below
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fillinus-db
+          property: connectionString
+      - key: DB_USERNAME
+        fromDatabase:
+          name: fillinus-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: fillinus-db
+          property: password
+
+  # ─── PostgreSQL Database ──────────────────────────────────────
+  - type: pserv
+    name: fillinus-db
+    plan: free
+    databases:
+      - name: fillinus_erp
