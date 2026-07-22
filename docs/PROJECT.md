@@ -95,23 +95,26 @@
 
 | Version | Description |
 |---------|-------------|
-| `V1` | Create `users` table |
-| `V2` | Create `refresh_tokens` table |
-| `V3` | Create `password_reset_tokens` table |
-| `V4` | Create `audit_logs` table |
-| `V5` | Seed default admin user |
+| `V1` | Create `roles` table + seed ADMIN / MANAGER / EMPLOYEE |
+| `V2` | Create `departments` table |
+| `V3` | Create `positions` table |
+| `V4` | Create `users` table |
+| `V5` | Create `password_reset_tokens` table |
+| `V6` | **Java migration** — seed test accounts with BCrypt-hashed passwords |
 
 > [!NOTE]
 > Flyway runs automatically on every startup. To deploy to a new database, just set `DATABASE_URL` — all tables are created automatically.
 
-### Default Admin User (seeded by V5)
+### Test Accounts (seeded by V6)
 
-| Field | Value |
-|-------|-------|
-| Username | `admin` |
-| Password | `Admin@123` |
-| Email | `admin@fillinus.com` |
-| Role | `ADMIN` |
+> [!IMPORTANT]
+> These accounts are created automatically when the app starts and runs the V6 Flyway migration.
+
+| Username | Password | Role | Email |
+|----------|----------|------|-------|
+| `admin` | `Admin@123456` | ADMIN | admin@fillinus.com |
+| `manager` | `Manager@123` | MANAGER | manager@fillinus.com |
+| `emp01` | `Employee@123` | EMPLOYEE | emp01@fillinus.com |
 
 ---
 
