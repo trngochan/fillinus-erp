@@ -1,5 +1,5 @@
 services:
-  # ─── Spring Boot API ──────────────────────────────────────────
+  # ─── Spring Boot Web Service ──────────────────────────────────
   - type: web
     name: fillinus-erp
     runtime: java
@@ -24,23 +24,13 @@ services:
         value: ""
       - key: MAIL_PASSWORD
         value: ""
-      # DATABASE_URL will be set from the database service below
       - key: DATABASE_URL
         fromDatabase:
           name: fillinus-db
           property: connectionString
-      - key: DB_USERNAME
-        fromDatabase:
-          name: fillinus-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: fillinus-db
-          property: password
 
-  # ─── PostgreSQL Database ──────────────────────────────────────
-  - type: pserv
-    name: fillinus-db
+# ─── PostgreSQL Database (top-level key) ─────────────────────
+databases:
+  - name: fillinus-db
     plan: free
-    databases:
-      - name: fillinus_erp
+    databaseName: fillinus_erp
