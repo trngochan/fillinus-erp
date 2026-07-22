@@ -72,6 +72,13 @@ app:
   # Password reset token validity
   password-reset-token-expiry-minutes: ${RESET_TOKEN_EXPIRY_MINUTES:30}
 
+  # ──────────────────────────────────────────
+  # CORS — allowed frontend origins
+  # Render: set CORS_ALLOWED_ORIGINS env var to https://fillinus-erp-fe.onrender.com
+  # ──────────────────────────────────────────
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
 # ──────────────────────────────────────────
 # SPRINGDOC — Swagger UI
 # ──────────────────────────────────────────
