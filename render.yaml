@@ -2,7 +2,6 @@ services:
   # ─── Spring Boot Web Service ──────────────────────────────────
   - type: web
     name: fillinus-erp
-    runtime: java
     plan: free
     buildCommand: "./gradlew bootJar -x test"
     startCommand: "java -Xmx450m -jar build/libs/fillinus-erp.jar"
@@ -29,7 +28,7 @@ services:
           name: fillinus-db
           property: connectionString
 
-# ─── PostgreSQL Database (top-level key) ─────────────────────
+# ─── PostgreSQL Database ──────────────────────────────────────
 databases:
   - name: fillinus-db
     plan: free
