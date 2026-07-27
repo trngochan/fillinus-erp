@@ -36,6 +36,7 @@ public class SecurityConfig {
     /** Public endpoints — no token required */
     private static final String[] PUBLIC_URLS = {
             "/auth/login",
+            "/auth/register",
             "/auth/forgot-password",
             "/auth/reset-password",
             "/v3/api-docs/**",

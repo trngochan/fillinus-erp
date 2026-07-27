@@ -3,8 +3,10 @@ package com.fillinus.erp.module.auth.service;
 import com.fillinus.erp.config.JwtUtil;
 import com.fillinus.erp.module.auth.dto.*;
 import com.fillinus.erp.module.auth.entity.PasswordResetToken;
+import com.fillinus.erp.module.auth.entity.Role;
 import com.fillinus.erp.module.auth.entity.User;
 import com.fillinus.erp.module.auth.repository.PasswordResetTokenRepository;
+import com.fillinus.erp.module.auth.repository.RoleRepository;
 import com.fillinus.erp.module.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final JavaMailSender mailSender;
@@ -38,6 +41,46 @@ public class AuthService {
 
     @Value("${app.password-reset-token-expiry-minutes}")
     private int resetTokenExpiryMinutes;
+
+    // ─── Register ───────────────────────────────────────────────────────────
+    /**
+     * Register a new user with SALE role.
+     * Public endpoint — no JWT required.
+     */
+    @Transactional
+    public LoginResponse register(RegisterRequest request) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new RuntimeException("Username already exists.");
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email already registered.");
+        }
+
+        Role saleRole = roleRepository.findByName("SALE")
+                .orElseThrow(() -> new RuntimeException("SALE role not found. Please contact admin."));
+
+        User user = User.builder()
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .role(saleRole)
+                .isActive(true)
+                .build();
+        userRepository.save(user);
+
+        String token = jwtUtil.generateToken(user.getUsername(), "SALE");
+        log.info("New SALE user registered: {}", user.getUsername());
+
+        return LoginResponse.builder()
+                .accessToken(token)
+                .tokenType("Bearer")
+                .expiresIn(jwtUtil.getExpirationMs() / 1000)
+                .username(user.getUsername())
+                .fullName(user.getFullName())
+                .role("SALE")
+                .build();
+    }
 
     // ─── AUTH-001: Login ────────────────────────────────────────────────────
     /**

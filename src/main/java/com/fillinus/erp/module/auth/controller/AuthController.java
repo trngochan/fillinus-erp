@@ -57,4 +57,17 @@ public class AuthController {
         authService.resetPassword(request);
         return ResponseEntity.ok(ApiResponse.ok("Password has been reset successfully.", null));
     }
+
+    /**
+     * Register — Create new SALE account
+     * POST /api/auth/register
+     * Public endpoint — no JWT required.
+     */
+    @Operation(summary = "Register", description = "Register a new SALE account and return JWT token")
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<LoginResponse>> register(@Valid @RequestBody RegisterRequest request) {
+        LoginResponse response = authService.register(request);
+        return ResponseEntity.ok(ApiResponse.ok("Registration successful.", response));
+    }
 }
+
