@@ -2,6 +2,7 @@ package com.fillinus.erp.module.sales.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -50,8 +51,9 @@ public class Opportunity {
     @Column(name = "assigned_to", nullable = false)
     private Long assignedTo;
 
-    /** NEW / IN_PROGRESS / WON / LOST */
+    /** NEW / IN_PROGRESS / WON / LOST — Postgres native enum opportunity_status */
     @Column(name = "status", nullable = false, length = 20)
+    @ColumnTransformer(write = "?::opportunity_status")
     @Builder.Default
     private String status = "NEW";
 

@@ -3,7 +3,7 @@ package com.fillinus.erp.module.sales.controller;
 import com.fillinus.erp.common.ApiResponse;
 import com.fillinus.erp.module.auth.repository.UserRepository;
 import com.fillinus.erp.module.sales.dto.*;
-import com.fillinus.erp.module.sales.service.LeadService;
+import com.fillinus.erp.module.sales.service.OpportunityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,7 +25,7 @@ import java.util.List;
 @SecurityRequirement(name = "bearerAuth")
 public class OpportunityController {
 
-    private final LeadService leadService;
+    private final OpportunityService opportunityService;
     private final UserRepository userRepository;
 
     /** Get MY opportunities (assigned to me) */
@@ -33,7 +33,26 @@ public class OpportunityController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<OpportunityResponse>>> getMyOpportunities(Authentication auth) {
         Long userId = resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getMyOpportunities(userId)));
+        return ResponseEntity.ok(ApiResponse.ok("Success", opportunityService.getMyOpportunities(userId)));
+    }
+
+    /** View opportunity detail */
+    @Operation(summary = "Get opportunity by ID", description = "Can only view your own opportunities.")
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<OpportunityResponse>> getOpportunity(@PathVariable Long id, Authentication auth) {
+        Long userId = resolveUserId(auth);
+        return ResponseEntity.ok(ApiResponse.ok("Success", opportunityService.getOpportunity(id, userId)));
+    }
+
+    /** Edit opportunity contact info */
+    @Operation(summary = "Update opportunity", description = "Edit company/contact/phone/email. Can only update your own opportunities.")
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<OpportunityResponse>> updateOpportunity(
+            @PathVariable Long id,
+            @RequestBody UpdateOpportunityDetailsRequest request,
+            Authentication auth) {
+        Long userId = resolveUserId(auth);
+        return ResponseEntity.ok(ApiResponse.ok("Opportunity updated.", opportunityService.updateOpportunity(id, request, userId)));
     }
 
     /** Update opportunity status */
@@ -44,7 +63,7 @@ public class OpportunityController {
             @RequestBody UpdateOpportunityRequest request,
             Authentication auth) {
         Long userId = resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Status updated.", leadService.updateOpportunityStatus(id, request, userId)));
+        return ResponseEntity.ok(ApiResponse.ok("Status updated.", opportunityService.updateStatus(id, request, userId)));
     }
 
     private Long resolveUserId(Authentication auth) {

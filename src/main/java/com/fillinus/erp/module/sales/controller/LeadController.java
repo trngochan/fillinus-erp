@@ -104,13 +104,6 @@ public class LeadController {
                 .body(bytes);
     }
 
-    // ─── My Opportunities (convenience — also exposed via /opportunities) ─────
-    @Operation(summary = "Get my opportunities")
-    @GetMapping("/my-opportunities")
-    public ResponseEntity<ApiResponse<List<OpportunityResponse>>> myOpportunities(Authentication auth) {
-        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getMyOpportunities(resolveUserId(auth))));
-    }
-
     // ─── Helpers ──────────────────────────────────────────────────────────────
     private Long resolveUserId(Authentication auth) {
         return userRepository.findByUsername(auth.getName())

@@ -12,13 +12,17 @@ import java.util.Optional;
 @Repository
 public interface LeadRepository extends JpaRepository<Lead, Long> {
 
-    /** BR-005: exclude soft-deleted; BR-004: exclude CONVERTED from main list */
-    @Query("SELECT l FROM Lead l WHERE l.isDeleted = false AND l.status <> 'CONVERTED' " +
-           "AND (:search IS NULL OR LOWER(l.leadName) LIKE LOWER(CONCAT('%',:search,'%')) " +
-           "     OR LOWER(l.companyName) LIKE LOWER(CONCAT('%',:search,'%')) " +
-           "     OR LOWER(l.leadId) LIKE LOWER(CONCAT('%',:search,'%'))) " +
-           "AND (:status IS NULL OR l.status = :status) " +
-           "ORDER BY l.createdAt DESC")
+    /**
+     * BR-005: exclude soft-deleted; BR-004: exclude CONVERTED from main list.
+     * Native query — Postgres enum columns (lead_status) need an explicit cast that
+     * plain JPQL's CAST(... AS string) cannot express, only a native ::lead_status can.
+     */
+    @Query(value = "SELECT * FROM leads l WHERE l.is_deleted = false AND l.status <> 'CONVERTED' " +
+           "AND (:search IS NULL OR LOWER(l.lead_name) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')) " +
+           "     OR LOWER(l.company_name) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')) " +
+           "     OR LOWER(l.lead_id) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%'))) " +
+           "AND (:status IS NULL OR l.status = CAST(:status AS lead_status)) " +
+           "ORDER BY l.created_at DESC", nativeQuery = true)
     List<Lead> findAllActive(@Param("search") String search, @Param("status") String status);
 
     Optional<Lead> findByLeadIdAndIsDeletedFalse(String leadId);

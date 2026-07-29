@@ -2,6 +2,7 @@ package com.fillinus.erp.module.sales.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -42,8 +43,9 @@ public class Lead {
     @Column(name = "email", length = 255)
     private String email;
 
-    /** BR-002, BR-003: NEW / IN_PROGRESS / CONVERTED / CLOSED */
+    /** BR-002, BR-003: NEW / IN_PROGRESS / CONVERTED / CLOSED — Postgres native enum lead_status */
     @Column(name = "status", nullable = false, length = 20)
+    @ColumnTransformer(write = "?::lead_status")
     @Builder.Default
     private String status = "NEW";
 

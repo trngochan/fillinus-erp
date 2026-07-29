@@ -4,9 +4,7 @@ import com.fillinus.erp.module.auth.entity.User;
 import com.fillinus.erp.module.auth.repository.UserRepository;
 import com.fillinus.erp.module.sales.dto.*;
 import com.fillinus.erp.module.sales.entity.Lead;
-import com.fillinus.erp.module.sales.entity.Opportunity;
 import com.fillinus.erp.module.sales.repository.LeadRepository;
-import com.fillinus.erp.module.sales.repository.OpportunityRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -28,7 +26,7 @@ import java.util.stream.Collectors;
 public class LeadService {
 
     private final LeadRepository leadRepository;
-    private final OpportunityRepository opportunityRepository;
+    private final OpportunityService opportunityService;
     private final UserRepository userRepository;
 
     // ─── BUSINESS-01: Search Leads ────────────────────────────────────────────
@@ -102,29 +100,15 @@ public class LeadService {
             throw new RuntimeException("Lead " + lead.getLeadId() + " has already been converted.");
         }
 
-        // Generate opportunity ID
-        String oppId = generateOpportunityId();
-
-        Opportunity opp = Opportunity.builder()
-                .opportunityId(oppId)
-                .leadId(lead.getId())
-                .leadName(lead.getLeadName())
-                .companyName(lead.getCompanyName())
-                .contactPerson(lead.getContactPerson())
-                .phone(lead.getPhone())
-                .email(lead.getEmail())
-                .assignedTo(currentUserId)
-                .status("NEW")
-                .build();
-        opportunityRepository.save(opp);
+        OpportunityResponse opp = opportunityService.createFromLead(lead, currentUserId);
 
         // Mark lead as CONVERTED — disappears from lead list
         lead.setStatus("CONVERTED");
         lead.setUpdatedBy(currentUserId);
         leadRepository.save(lead);
 
-        log.info("Lead {} converted to Opportunity {} by userId={}", lead.getLeadId(), oppId, currentUserId);
-        return toOppResponse(opp);
+        log.info("Lead {} converted to Opportunity {} by userId={}", lead.getLeadId(), opp.getOpportunityId(), currentUserId);
+        return opp;
     }
 
     // ─── Excel Import ─────────────────────────────────────────────────────────
@@ -170,25 +154,6 @@ public class LeadService {
         }
     }
 
-    // ─── Opportunities: My List ───────────────────────────────────────────────
-    public List<OpportunityResponse> getMyOpportunities(Long currentUserId) {
-        return opportunityRepository.findByAssignedToOrderByCreatedAtDesc(currentUserId)
-                .stream().map(this::toOppResponse).collect(Collectors.toList());
-    }
-
-    // ─── Update Opportunity Status ────────────────────────────────────────────
-    @Transactional
-    public OpportunityResponse updateOpportunityStatus(Long id, UpdateOpportunityRequest request, Long currentUserId) {
-        Opportunity opp = opportunityRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Opportunity not found: " + id));
-        if (!opp.getAssignedTo().equals(currentUserId)) {
-            throw new RuntimeException("You can only update your own opportunities.");
-        }
-        opp.setStatus(request.getStatus());
-        opportunityRepository.save(opp);
-        return toOppResponse(opp);
-    }
-
     // ─── Helpers ─────────────────────────────────────────────────────────────
     private Lead findActiveLead(Long id) {
         Lead lead = leadRepository.findById(id)
@@ -215,23 +180,6 @@ public class LeadService {
                 .build();
     }
 
-    private OpportunityResponse toOppResponse(Opportunity opp) {
-        return OpportunityResponse.builder()
-                .id(opp.getId())
-                .opportunityId(opp.getOpportunityId())
-                .leadId(opp.getLeadId())
-                .leadName(opp.getLeadName())
-                .companyName(opp.getCompanyName())
-                .contactPerson(opp.getContactPerson())
-                .phone(opp.getPhone())
-                .email(opp.getEmail())
-                .assignedTo(opp.getAssignedTo())
-                .status(opp.getStatus())
-                .createdAt(opp.getCreatedAt())
-                .updatedAt(opp.getUpdatedAt())
-                .build();
-    }
-
     /** BR-001: Auto-generate Lead ID in format LEAD-0001 */
     private String generateLeadId() {
         long count = leadRepository.countAll() + 1;
@@ -240,11 +188,6 @@ public class LeadService {
             candidate = String.format("LEAD-%04d", count++);
         } while (leadRepository.existsByLeadId(candidate));
         return candidate;
-    }
-
-    private String generateOpportunityId() {
-        long count = opportunityRepository.count() + 1;
-        return String.format("OPP-%04d", count);
     }
 
     private String getCellString(Row row, int col) {
