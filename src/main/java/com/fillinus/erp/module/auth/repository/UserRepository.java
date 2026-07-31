@@ -4,6 +4,7 @@ import com.fillinus.erp.module.auth.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -14,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
     /** Used by JwtAuthFilter — avoids loading the full User entity or any lazy relations */
     boolean existsByUsernameAndIsActive(String username, Boolean isActive);
+    /** Sales Rep dropdown lookup (Lead/Opportunity forms) */
+    List<User> findByRole_NameAndIsActiveTrueOrderByFullName(String roleName);
 }

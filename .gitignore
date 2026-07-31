@@ -30,3 +30,8 @@ application-local.yml
 
 # Test output
 out/
+
+# Personal agent rules/skills — local use only, not shared via git
+AGENTS.md
+.claude/
+docs/templates/

@@ -1,22 +1,29 @@
 package com.fillinus.erp.module.sales.service;
 
-import com.fillinus.erp.module.sales.dto.OpportunityResponse;
-import com.fillinus.erp.module.sales.dto.UpdateOpportunityDetailsRequest;
-import com.fillinus.erp.module.sales.dto.UpdateOpportunityRequest;
+import com.fillinus.erp.common.PageResponse;
+import com.fillinus.erp.module.auth.entity.User;
+import com.fillinus.erp.module.auth.repository.UserRepository;
+import com.fillinus.erp.module.sales.dto.*;
 import com.fillinus.erp.module.sales.entity.Lead;
 import com.fillinus.erp.module.sales.entity.Opportunity;
+import com.fillinus.erp.module.sales.entity.OpportunityDetail;
 import com.fillinus.erp.module.sales.repository.OpportunityRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * Opportunity Service — SAL-002
- * Salers can only see/edit opportunities assigned to them.
+ * Salers can only see/edit opportunities assigned to them (sales_rep_id).
+ * "customer"/detail "serviceProduct"/"unit" are temp free-text fields — no Customer or
+ * Product/Unit master data exists yet (SAL-006/007/009 not built).
  */
 @Service
 @RequiredArgsConstructor
@@ -24,65 +31,129 @@ import java.util.stream.Collectors;
 public class OpportunityService {
 
     private final OpportunityRepository opportunityRepository;
+    private final UserRepository userRepository;
 
-    /** Created when a Lead is converted (SAL-001 BUSINESS-06) — called from LeadService. */
+    /**
+     * Created when a Lead is converted (SAL-001 V1.1 BUSINESS-06). "projectType" has no
+     * dedicated Opportunity column (SAL-002 defines none) — folded into description.
+     * Per SAL-002 BR-02 / Lead V1.1 FLOW-06 step 7: Opportunity Detail is collected in this
+     * same Convert step (not auto-created) — the request must carry at least one Detail line.
+     */
     @Transactional
-    public OpportunityResponse createFromLead(Lead lead, Long currentUserId) {
+    public OpportunityResponse createFromLead(Lead lead, Long currentUserId, ConvertLeadRequest request) {
         Opportunity opp = Opportunity.builder()
                 .opportunityId(generateOpportunityId())
                 .leadId(lead.getId())
-                .leadName(lead.getLeadName())
-                .companyName(lead.getCompanyName())
-                .contactPerson(lead.getContactPerson())
-                .phone(lead.getPhone())
-                .email(lead.getEmail())
-                .assignedTo(currentUserId)
-                .status("NEW")
+                .opportunityName(request.getOpportunityName())
+                .customer(lead.getCompanyName())
+                .salesRepId(request.getSalesRepId())
+                .stage("PROSPECTING")
+                .expectedRevenue(request.getExpectedDealValue() != null ? request.getExpectedDealValue() : BigDecimal.ZERO)
+                .description("Project Type: " + request.getProjectType())
+                .lifecycleStatus("OPEN")
                 .build();
+        applyDetails(opp, request.getDetails());
         opportunityRepository.save(opp);
         log.info("Opportunity created: {} from Lead {} by userId={}", opp.getOpportunityId(), lead.getLeadId(), currentUserId);
         return toResponse(opp);
     }
 
-    /** Get MY opportunities (assigned to me) */
-    public List<OpportunityResponse> getMyOpportunities(Long currentUserId) {
-        return opportunityRepository.findByAssignedToOrderByCreatedAtDesc(currentUserId)
-                .stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    /** View opportunity detail — can only view your own */
-    public OpportunityResponse getOpportunity(Long id, Long currentUserId) {
-        return toResponse(findOwnedOpportunity(id, currentUserId));
-    }
-
-    /** Edit contact fields — opportunityId/leadId/leadName stay immutable (copied at conversion) */
+    /** Business-02: direct create (not via Lead conversion) */
     @Transactional
-    public OpportunityResponse updateOpportunity(Long id, UpdateOpportunityDetailsRequest request, Long currentUserId) {
-        Opportunity opp = findOwnedOpportunity(id, currentUserId);
-        opp.setCompanyName(request.getCompanyName());
-        opp.setContactPerson(request.getContactPerson());
-        opp.setPhone(request.getPhone());
-        opp.setEmail(request.getEmail());
+    public OpportunityResponse createDirect(CreateOpportunityRequest request, Long currentUserId) {
+        Opportunity opp = Opportunity.builder()
+                .opportunityId(generateOpportunityId())
+                .opportunityName(request.getOpportunityName())
+                .customer(request.getCustomer())
+                .salesRepId(request.getSalesRepId())
+                .stage(request.getStage() != null ? request.getStage() : "PROSPECTING")
+                .expectedRevenue(request.getExpectedRevenue() != null ? request.getExpectedRevenue() : BigDecimal.ZERO)
+                .description(request.getDescription())
+                .lifecycleStatus("OPEN")
+                .build();
+        applyDetails(opp, request.getDetails());
+        opportunityRepository.save(opp);
+        log.info("Opportunity created directly: {} by userId={}", opp.getOpportunityId(), currentUserId);
+        return toResponse(opp);
+    }
+
+    /**
+     * List opportunities, paginated + searchable. {@code viewerSalesRepId} is the visibility
+     * filter resolved by the controller from the caller's role: the caller's own userId for a
+     * SALE rep (mine-only), or {@code null} for ADMIN/MANAGER (see all).
+     */
+    public PageResponse<OpportunityResponse> getMyOpportunities(Long viewerSalesRepId, String search, int page, int size) {
+        String searchParam = (search != null && search.isBlank()) ? null : search;
+        Page<Opportunity> result = opportunityRepository.findMine(viewerSalesRepId, searchParam, PageRequest.of(page, size));
+        return PageResponse.of(result.map(this::toResponse));
+    }
+
+    /** View opportunity detail. {@code viewerSalesRepId} null (ADMIN/MANAGER) skips the ownership check. */
+    public OpportunityResponse getOpportunity(Long id, Long viewerSalesRepId) {
+        Opportunity opp = opportunityRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Opportunity not found: " + id));
+        if (viewerSalesRepId != null && !opp.getSalesRepId().equals(viewerSalesRepId)) {
+            throw new RuntimeException("You can only access your own opportunities.");
+        }
+        return toResponse(opp);
+    }
+
+    /**
+     * Business-04: Edit Header + Detail lines. BR-01/BR-06: only allowed while the
+     * Opportunity has not been converted to a Quotation yet. {@code privileged} (ADMIN/MANAGER)
+     * bypasses the ownership check, same as list/view.
+     */
+    @Transactional
+    public OpportunityResponse updateOpportunity(Long id, CreateOpportunityRequest request, Long currentUserId, boolean privileged) {
+        Opportunity opp = findOwnedOpportunity(id, currentUserId, privileged);
+        if (!"OPEN".equals(opp.getLifecycleStatus())) {
+            throw new RuntimeException("This opportunity has already been converted to quotation.");
+        }
+        opp.setOpportunityName(request.getOpportunityName());
+        opp.setCustomer(request.getCustomer());
+        opp.setSalesRepId(request.getSalesRepId());
+        if (request.getStage() != null) opp.setStage(request.getStage());
+        if (request.getExpectedRevenue() != null) opp.setExpectedRevenue(request.getExpectedRevenue());
+        opp.setDescription(request.getDescription());
+        applyDetails(opp, request.getDetails());
         opportunityRepository.save(opp);
         log.info("Opportunity updated: {} by userId={}", opp.getOpportunityId(), currentUserId);
         return toResponse(opp);
     }
 
-    /** Update status: NEW / IN_PROGRESS / WON / LOST */
+    /**
+     * Business-05 (implied by Popup Delete): Soft delete is not modeled on this entity yet — hard-remove test-only rows is out of scope; kept for future Quotation-lock parity.
+     * {@code privileged} (ADMIN/MANAGER) bypasses the ownership check, same as list/view.
+     */
     @Transactional
-    public OpportunityResponse updateStatus(Long id, UpdateOpportunityRequest request, Long currentUserId) {
-        Opportunity opp = findOwnedOpportunity(id, currentUserId);
-        opp.setStatus(request.getStatus());
-        opportunityRepository.save(opp);
-        log.info("Opportunity {} status -> {} by userId={}", opp.getOpportunityId(), request.getStatus(), currentUserId);
-        return toResponse(opp);
+    public void deleteOpportunity(Long id, Long currentUserId, boolean privileged) {
+        Opportunity opp = findOwnedOpportunity(id, currentUserId, privileged);
+        if (!"OPEN".equals(opp.getLifecycleStatus())) {
+            throw new RuntimeException("This opportunity has already been converted to quotation.");
+        }
+        opportunityRepository.delete(opp);
+        log.info("Opportunity deleted: {} by userId={}", opp.getOpportunityId(), currentUserId);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
-    private Opportunity findOwnedOpportunity(Long id, Long currentUserId) {
+    private void applyDetails(Opportunity opp, List<OpportunityDetailRequest> detailRequests) {
+        opp.getDetails().clear();
+        if (detailRequests == null) return;
+        for (OpportunityDetailRequest d : detailRequests) {
+            opp.getDetails().add(OpportunityDetail.builder()
+                    .opportunity(opp)
+                    .serviceProduct(d.getServiceProduct())
+                    .quantity(d.getQuantity())
+                    .unit(d.getUnit())
+                    .remark(d.getRemark())
+                    .build());
+        }
+    }
+
+    private Opportunity findOwnedOpportunity(Long id, Long currentUserId, boolean privileged) {
         Opportunity opp = opportunityRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Opportunity not found: " + id));
-        if (!opp.getAssignedTo().equals(currentUserId)) {
+        if (!privileged && !opp.getSalesRepId().equals(currentUserId)) {
             throw new RuntimeException("You can only access your own opportunities.");
         }
         return opp;
@@ -94,17 +165,30 @@ public class OpportunityService {
     }
 
     private OpportunityResponse toResponse(Opportunity opp) {
+        String salesRepName = userRepository.findById(opp.getSalesRepId()).map(User::getFullName).orElse(null);
+        List<OpportunityDetailResponse> details = opp.getDetails().stream()
+                .map(d -> OpportunityDetailResponse.builder()
+                        .id(d.getId())
+                        .serviceProduct(d.getServiceProduct())
+                        .quantity(d.getQuantity())
+                        .unit(d.getUnit())
+                        .remark(d.getRemark())
+                        .build())
+                .collect(Collectors.toList());
         return OpportunityResponse.builder()
                 .id(opp.getId())
                 .opportunityId(opp.getOpportunityId())
                 .leadId(opp.getLeadId())
-                .leadName(opp.getLeadName())
-                .companyName(opp.getCompanyName())
-                .contactPerson(opp.getContactPerson())
-                .phone(opp.getPhone())
-                .email(opp.getEmail())
-                .assignedTo(opp.getAssignedTo())
-                .status(opp.getStatus())
+                .opportunityName(opp.getOpportunityName())
+                .customer(opp.getCustomer())
+                .salesRepId(opp.getSalesRepId())
+                .salesRepName(salesRepName)
+                .stage(opp.getStage())
+                .expectedRevenue(opp.getExpectedRevenue())
+                .description(opp.getDescription())
+                .lifecycleStatus(opp.getLifecycleStatus())
+                .details(details)
+                .hasQuotation(!"OPEN".equals(opp.getLifecycleStatus()))
                 .createdAt(opp.getCreatedAt())
                 .updatedAt(opp.getUpdatedAt())
                 .build();

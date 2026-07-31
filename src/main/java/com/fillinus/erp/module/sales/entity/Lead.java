@@ -9,8 +9,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * Lead entity — maps to the `leads` table (V7__create_leads.sql).
- * SAL-001 Lead Management — BR-001 to BR-007
+ * Lead entity — maps to the `leads` table (V8__create_leads.sql, V1.1 fields in V11).
+ * SAL-001 Lead Management V1.1 — BR-001 to BR-007
  */
 @Entity
 @Table(name = "leads")
@@ -43,11 +43,29 @@ public class Lead {
     @Column(name = "email", length = 255)
     private String email;
 
-    /** BR-002, BR-003: NEW / IN_PROGRESS / CONVERTED / CLOSED — Postgres native enum lead_status */
+    /**
+     * V1.1 BR-003: NEW / IN_PROGRESS / QUALIFIED / REJECTED — Postgres native enum lead_status.
+     * QUALIFIED/REJECTED were added to the existing enum type in V10 (kept UPPER_CASE to match
+     * the pre-existing NEW/IN_PROGRESS labels already in the DB — spec's "Qualified"/"Rejected"
+     * casing is just the display label, not the stored value).
+     */
     @Column(name = "status", nullable = false, length = 20)
     @ColumnTransformer(write = "?::lead_status")
     @Builder.Default
     private String status = "NEW";
+
+    /** V1.1: New Client / Existing Client / Referral / Digital Lead — Postgres native enum lead_source */
+    @Column(name = "source", length = 30)
+    @ColumnTransformer(write = "?::lead_source")
+    private String source;
+
+    /** V1.1: Sales Rep responsible for this Lead (FK -> users.id) */
+    @Column(name = "sales_rep_id")
+    private Long salesRepId;
+
+    /** V1.1: free-text remark/note */
+    @Column(name = "remark", columnDefinition = "TEXT")
+    private String remark;
 
     /** BR-005: Soft delete */
     @Column(name = "is_deleted", nullable = false)

@@ -1,5 +1,6 @@
 package com.fillinus.erp.module.sales.service;
 
+import com.fillinus.erp.common.PageResponse;
 import com.fillinus.erp.module.auth.entity.User;
 import com.fillinus.erp.module.auth.repository.UserRepository;
 import com.fillinus.erp.module.sales.dto.*;
@@ -9,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,16 +33,17 @@ public class LeadService {
     private final UserRepository userRepository;
 
     // ─── BUSINESS-01: Search Leads ────────────────────────────────────────────
-    public List<LeadResponse> getLeads(String search, String status) {
+    public PageResponse<LeadResponse> getLeads(String search, String status, int page, int size) {
         String searchParam = (search != null && search.isBlank()) ? null : search;
         String statusParam = (status != null && (status.isBlank() || status.equalsIgnoreCase("ALL"))) ? null : status;
-        return leadRepository.findAllActive(searchParam, statusParam)
-                .stream().map(this::toResponse).collect(Collectors.toList());
+        Page<Lead> result = leadRepository.findAllActive(searchParam, statusParam, PageRequest.of(page, size));
+        return PageResponse.of(result.map(this::toResponse));
     }
 
     // ─── BUSINESS-02: Create Lead ─────────────────────────────────────────────
     @Transactional
     public LeadResponse createLead(CreateLeadRequest request, Long currentUserId) {
+        validateUniquePhoneEmail(request.getPhone(), request.getEmail(), null);
         String leadId = generateLeadId();
         Lead lead = Lead.builder()
                 .leadId(leadId)
@@ -48,6 +52,9 @@ public class LeadService {
                 .contactPerson(request.getContactPerson())
                 .phone(request.getPhone())
                 .email(request.getEmail())
+                .source(request.getSource())
+                .salesRepId(request.getSalesRepId())
+                .remark(request.getRemark())
                 .status("NEW")
                 .isDeleted(false)
                 .createdBy(currentUserId)
@@ -65,15 +72,27 @@ public class LeadService {
     }
 
     // ─── BUSINESS-04: Edit Lead ───────────────────────────────────────────────
+    private static final List<String> USER_EDITABLE_STATUSES = List.of("NEW", "IN_PROGRESS", "REJECTED");
+
     @Transactional
     public LeadResponse updateLead(Long id, CreateLeadRequest request, Long currentUserId) {
         Lead lead = findActiveLead(id);
+        validateUniquePhoneEmail(request.getPhone(), request.getEmail(), id);
         // Lead ID (leadId) is immutable per BR-001
         lead.setLeadName(request.getLeadName());
         lead.setCompanyName(request.getCompanyName());
         lead.setContactPerson(request.getContactPerson());
         lead.setPhone(request.getPhone());
         lead.setEmail(request.getEmail());
+        lead.setSource(request.getSource());
+        lead.setSalesRepId(request.getSalesRepId());
+        lead.setRemark(request.getRemark());
+        if (request.getStatus() != null) {
+            if (!USER_EDITABLE_STATUSES.contains(request.getStatus())) {
+                throw new RuntimeException("Status must be one of: New, In Progress, Rejected. Qualified is set automatically by Convert.");
+            }
+            lead.setStatus(request.getStatus());
+        }
         lead.setUpdatedBy(currentUserId);
         leadRepository.save(lead);
         log.info("Lead updated: {} by userId={}", lead.getLeadId(), currentUserId);
@@ -92,18 +111,19 @@ public class LeadService {
 
     // ─── BUSINESS-06: Convert Lead to Opportunity ────────────────────────────
     @Transactional
-    public OpportunityResponse convertLead(Long id, Long currentUserId) {
+    public OpportunityResponse convertLead(Long id, ConvertLeadRequest request, Long currentUserId) {
         Lead lead = findActiveLead(id);
 
-        // BR-004: Cannot convert twice
-        if ("CONVERTED".equals(lead.getStatus())) {
-            throw new RuntimeException("Lead " + lead.getLeadId() + " has already been converted.");
+        // V1.1: Rejected leads can never be converted; otherwise convert is allowed any
+        // number of times — one Lead can produce many Opportunities (BR-004).
+        if ("REJECTED".equals(lead.getStatus())) {
+            throw new RuntimeException("Lead " + lead.getLeadId() + " is Rejected and cannot be converted.");
         }
 
-        OpportunityResponse opp = opportunityService.createFromLead(lead, currentUserId);
+        OpportunityResponse opp = opportunityService.createFromLead(lead, currentUserId, request);
 
-        // Mark lead as CONVERTED — disappears from lead list
-        lead.setStatus("CONVERTED");
+        // V1.1: Convert -> Qualified (lead stays visible/re-convertible, does not disappear)
+        lead.setStatus("QUALIFIED");
         lead.setUpdatedBy(currentUserId);
         leadRepository.save(lead);
 
@@ -130,6 +150,7 @@ public class LeadService {
                 req.setContactPerson(getCellString(row, 2));
                 req.setPhone(getCellString(row, 3));
                 req.setEmail(getCellString(row, 4));
+                req.setSalesRepId(currentUserId); // template has no Sales Rep column — default to the importer
                 imported.add(createLead(req, currentUserId));
             }
         }
@@ -165,6 +186,9 @@ public class LeadService {
     }
 
     private LeadResponse toResponse(Lead lead) {
+        String salesRepName = lead.getSalesRepId() != null
+                ? userRepository.findById(lead.getSalesRepId()).map(User::getFullName).orElse(null)
+                : null;
         return LeadResponse.builder()
                 .id(lead.getId())
                 .leadId(lead.getLeadId())
@@ -174,10 +198,27 @@ public class LeadService {
                 .phone(lead.getPhone())
                 .email(lead.getEmail())
                 .status(lead.getStatus())
+                .source(lead.getSource())
+                .salesRepId(lead.getSalesRepId())
+                .salesRepName(salesRepName)
+                .remark(lead.getRemark())
                 .createdBy(lead.getCreatedBy())
                 .createdAt(lead.getCreatedAt())
                 .updatedAt(lead.getUpdatedAt())
                 .build();
+    }
+
+    /** V1.1: Phone/Email must not collide with another active (non-deleted) lead */
+    private void validateUniquePhoneEmail(String phone, String email, Long excludeId) {
+        boolean phoneTaken = excludeId == null
+                ? leadRepository.existsByPhoneAndIsDeletedFalse(phone)
+                : leadRepository.existsByPhoneAndIsDeletedFalseAndIdNot(phone, excludeId);
+        if (phoneTaken) throw new RuntimeException("Phone number is already in use.");
+
+        boolean emailTaken = excludeId == null
+                ? leadRepository.existsByEmailAndIsDeletedFalse(email)
+                : leadRepository.existsByEmailAndIsDeletedFalseAndIdNot(email, excludeId);
+        if (emailTaken) throw new RuntimeException("Email is already in use.");
     }
 
     /** BR-001: Auto-generate Lead ID in format LEAD-0001 */

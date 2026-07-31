@@ -9,6 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 /**
  * User Service — handles AUTH-004 (My Profile) and AUTH-005 (Change Password).
  */
@@ -19,6 +22,13 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    /** Dropdown lookup — e.g. Sales Rep selector on Lead/Opportunity forms */
+    public List<UserSummaryResponse> getUsersByRole(String role) {
+        return userRepository.findByRole_NameAndIsActiveTrueOrderByFullName(role).stream()
+                .map(u -> UserSummaryResponse.builder().id(u.getId()).fullName(u.getFullName()).build())
+                .collect(Collectors.toList());
+    }
 
     // ─── AUTH-004: Get My Profile ────────────────────────────────────────────
     public UserProfileResponse getProfile(String username) {

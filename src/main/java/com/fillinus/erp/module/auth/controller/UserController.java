@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * User Controller
  * Handles: AUTH-004 My Profile (GET/UPDATE), AUTH-005 Change Password
@@ -25,6 +27,16 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+
+    /**
+     * Dropdown lookup — e.g. GET /users?role=SALE for the Sales Rep selector
+     * on Lead/Opportunity forms.
+     */
+    @Operation(summary = "List users by role", description = "Minimal {id, fullName} list of active users with the given role.")
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<UserSummaryResponse>>> getUsersByRole(@RequestParam String role) {
+        return ResponseEntity.ok(ApiResponse.ok(userService.getUsersByRole(role)));
+    }
 
     /**
      * AUTH-004: Get My Profile

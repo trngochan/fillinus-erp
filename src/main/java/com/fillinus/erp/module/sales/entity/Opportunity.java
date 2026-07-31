@@ -6,11 +6,15 @@ import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Opportunity entity — maps to the `opportunities` table (V8__create_opportunities.sql).
- * SAL-002 Opportunity — created when a Lead is converted.
+ * Opportunity entity — maps to the `opportunities` table (redesigned in V12).
+ * SAL-002 Opportunity — created directly OR from a converted Lead (leadId nullable).
+ * "customer" is a temporary free-text field — no Customer master exists yet (SAL-007).
  */
 @Entity
 @Table(name = "opportunities")
@@ -27,35 +31,43 @@ public class Opportunity {
     @Column(name = "opportunity_id", nullable = false, unique = true, length = 50)
     private String opportunityId;
 
-    /** Source lead — for traceability (BR-006) */
-    @Column(name = "lead_id", nullable = false)
+    /** Source lead — nullable, Opportunity can be created directly (Business-02) */
+    @Column(name = "lead_id")
     private Long leadId;
 
-    /** Data copied from lead at time of conversion */
-    @Column(name = "lead_name", nullable = false, length = 255)
-    private String leadName;
+    @Column(name = "opportunity_name", nullable = false, length = 255)
+    private String opportunityName;
 
-    @Column(name = "company_name", length = 255)
-    private String companyName;
+    /** Temp free-text — no Customer master yet (SAL-007 Existing Client) */
+    @Column(name = "customer", nullable = false, length = 255)
+    private String customer;
 
-    @Column(name = "contact_person", length = 255)
-    private String contactPerson;
+    /** Sales Rep responsible for this Opportunity (FK -> users.id) */
+    @Column(name = "sales_rep_id", nullable = false)
+    private Long salesRepId;
 
-    @Column(name = "phone", length = 20)
-    private String phone;
-
-    @Column(name = "email", length = 255)
-    private String email;
-
-    /** The saler who converted the lead */
-    @Column(name = "assigned_to", nullable = false)
-    private Long assignedTo;
-
-    /** NEW / IN_PROGRESS / WON / LOST — Postgres native enum opportunity_status */
-    @Column(name = "status", nullable = false, length = 20)
-    @ColumnTransformer(write = "?::opportunity_status")
+    /** PROSPECTING / QUALIFICATION / PROPOSAL / NEGOTIATION / CLOSED_WON / CLOSED_LOST */
+    @Column(name = "stage", nullable = false, length = 20)
+    @ColumnTransformer(write = "?::opportunity_stage")
     @Builder.Default
-    private String status = "NEW";
+    private String stage = "PROSPECTING";
+
+    @Column(name = "expected_revenue", precision = 18, scale = 2)
+    @Builder.Default
+    private BigDecimal expectedRevenue = BigDecimal.ZERO;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    /** OPEN / CONVERTED / CLOSED — Postgres native enum opportunity_lifecycle_status */
+    @Column(name = "lifecycle_status", nullable = false, length = 20)
+    @ColumnTransformer(write = "?::opportunity_lifecycle_status")
+    @Builder.Default
+    private String lifecycleStatus = "OPEN";
+
+    @Builder.Default
+    @OneToMany(mappedBy = "opportunity", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<OpportunityDetail> details = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

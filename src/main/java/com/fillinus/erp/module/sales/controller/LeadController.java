@@ -1,6 +1,7 @@
 package com.fillinus.erp.module.sales.controller;
 
 import com.fillinus.erp.common.ApiResponse;
+import com.fillinus.erp.common.PageResponse;
 import com.fillinus.erp.module.auth.repository.UserRepository;
 import com.fillinus.erp.module.sales.dto.*;
 import com.fillinus.erp.module.sales.service.LeadService;
@@ -34,12 +35,14 @@ public class LeadController {
     private final UserRepository userRepository;
 
     /** BUSINESS-01: Search leads */
-    @Operation(summary = "Search leads", description = "Filter by search term and/or status. Returns active non-converted leads.")
+    @Operation(summary = "Search leads", description = "Filter by search term and/or status. Returns active non-converted leads, paginated.")
     @GetMapping
-    public ResponseEntity<ApiResponse<List<LeadResponse>>> getLeads(
+    public ResponseEntity<ApiResponse<PageResponse<LeadResponse>>> getLeads(
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String status) {
-        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLeads(search, status)));
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLeads(search, status, page, size)));
     }
 
     /** BUSINESS-03: View lead detail */
@@ -76,12 +79,15 @@ public class LeadController {
         return ResponseEntity.ok(ApiResponse.ok("Lead deleted.", null));
     }
 
-    /** BUSINESS-06: Convert lead to Opportunity */
+    /** BUSINESS-06: Convert lead to Opportunity (V1.1: collects Opportunity Name/Project Type/Expected Deal Value/Sales Rep) */
     @Operation(summary = "Convert lead to Opportunity",
-               description = "Creates Opportunity assigned to current saler. Marks lead CONVERTED. BR-004: cannot convert twice.")
+               description = "Creates Opportunity assigned to the given Sales Rep. Marks lead QUALIFIED. Convert is allowed multiple times unless the lead is Rejected.")
     @PostMapping("/{id}/convert")
-    public ResponseEntity<ApiResponse<OpportunityResponse>> convertLead(@PathVariable Long id, Authentication auth) {
-        return ResponseEntity.ok(ApiResponse.ok("Lead converted to Opportunity.", leadService.convertLead(id, resolveUserId(auth))));
+    public ResponseEntity<ApiResponse<OpportunityResponse>> convertLead(
+            @PathVariable Long id,
+            @Valid @RequestBody ConvertLeadRequest request,
+            Authentication auth) {
+        return ResponseEntity.ok(ApiResponse.ok("Lead converted to Opportunity.", leadService.convertLead(id, request, resolveUserId(auth))));
     }
 
     /** Import leads from Excel */
