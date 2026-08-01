@@ -166,37 +166,6 @@ public class QuotationService {
         return toResponse(quotation);
     }
 
-    /**
-     * BR-008: Create Deal Negotiation — only from Draft. Maps to Status = Sent (SAL-004 screen
-     * not built yet). {@code privileged} (ADMIN/MANAGER) bypasses the ownership check.
-     */
-    @Transactional
-    public QuotationResponse createDealNegotiation(Long id, Long currentUserId, boolean privileged) {
-        Quotation quotation = findOwnedQuotation(id, currentUserId, privileged);
-        applyExpiryIfNeeded(quotation);
-        if (!"DRAFT".equals(quotation.getStatus())) {
-            throw new RuntimeException("Deal Negotiation can only be created from a Draft quotation.");
-        }
-        quotation.setStatus("SENT");
-        quotation.setUpdatedBy(currentUserId);
-        quotationRepository.save(quotation);
-        log.info("Quotation {} -> Sent (Deal Negotiation) by userId={}", quotation.getQuotationNo(), currentUserId);
-        return toResponse(quotation);
-    }
-
-    /** BR-009: Deal result from SAL-004 (not built yet) — exposed so it isn't blocked later. */
-    @Transactional
-    public QuotationResponse updateDealResult(Long id, boolean won, Long currentUserId) {
-        Quotation quotation = findOwnedQuotation(id, currentUserId, false);
-        if (!"SENT".equals(quotation.getStatus())) {
-            throw new RuntimeException("Deal result can only be recorded for a Sent quotation.");
-        }
-        quotation.setStatus(won ? "ACCEPTED" : "REJECTED");
-        quotation.setUpdatedBy(currentUserId);
-        quotationRepository.save(quotation);
-        return toResponse(quotation);
-    }
-
     /** BR-011: soft delete, only allowed while Draft. {@code privileged} (ADMIN/MANAGER) bypasses the ownership check. */
     @Transactional
     public void deleteQuotation(Long id, Long currentUserId, boolean privileged) {

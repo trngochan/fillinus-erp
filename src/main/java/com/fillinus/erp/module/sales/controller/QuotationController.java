@@ -4,6 +4,7 @@ import com.fillinus.erp.common.ApiResponse;
 import com.fillinus.erp.common.PageResponse;
 import com.fillinus.erp.module.auth.repository.UserRepository;
 import com.fillinus.erp.module.sales.dto.*;
+import com.fillinus.erp.module.sales.service.DealNegotiationService;
 import com.fillinus.erp.module.sales.service.QuotationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 public class QuotationController {
 
     private final QuotationService quotationService;
+    private final DealNegotiationService dealNegotiationService;
     private final UserRepository userRepository;
 
     @Operation(summary = "Create quotation from opportunity", description = "SALE reps can only quote their own Opportunity; ADMIN/MANAGER can quote any. BR-001: only allowed while the Opportunity is Open and not yet converted.")
@@ -75,11 +77,14 @@ public class QuotationController {
         return ResponseEntity.ok(ApiResponse.ok("Quotation deleted.", null));
     }
 
-    @Operation(summary = "Create Deal Negotiation", description = "SALE reps can only act on their own; ADMIN/MANAGER can act on any. BR-008: only allowed while Status = Draft. Sets Status = Sent (SAL-004 screen not built yet — no navigation target).")
+    @Operation(summary = "Create Deal Negotiation", description = "SALE reps can only act on their own; ADMIN/MANAGER can act on any. BR-001 (SAL-004): only allowed while Status = Draft. Creates the Deal Negotiation + its first Negotiation History entry, and sets Quotation Status = Sent.")
     @PostMapping("/quotations/{id}/deal-negotiation")
-    public ResponseEntity<ApiResponse<QuotationResponse>> createDealNegotiation(@PathVariable Long id, Authentication auth) {
+    public ResponseEntity<ApiResponse<DealNegotiationResponse>> createDealNegotiation(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateDealNegotiationRequest request,
+            Authentication auth) {
         Long userId = resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Quotation moved to Sent.", quotationService.createDealNegotiation(id, userId, isPrivilegedRole(auth))));
+        return ResponseEntity.ok(ApiResponse.ok("Deal Negotiation created.", dealNegotiationService.createFromQuotation(id, request, userId, isPrivilegedRole(auth))));
     }
 
     private Long resolveUserId(Authentication auth) {
