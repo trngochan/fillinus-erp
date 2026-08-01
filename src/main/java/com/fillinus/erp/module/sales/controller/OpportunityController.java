@@ -45,7 +45,7 @@ public class OpportunityController {
             Authentication auth,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
         return ResponseEntity.ok(ApiResponse.ok("Success", opportunityService.getMyOpportunities(viewerSalesRepId, search, page, size)));
     }

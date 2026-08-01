@@ -25,14 +25,17 @@ public interface LeadRepository extends JpaRepository<Lead, Long> {
            "     OR LOWER(l.company_name) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')) " +
            "     OR LOWER(l.lead_id) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%'))) " +
            "AND (:status IS NULL OR l.status = CAST(:status AS lead_status)) " +
+           "AND (:salesRepId IS NULL OR l.sales_rep_id = :salesRepId) " +
            "ORDER BY l.created_at DESC",
            countQuery = "SELECT COUNT(*) FROM leads l WHERE l.is_deleted = false " +
            "AND (:search IS NULL OR LOWER(l.lead_name) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')) " +
            "     OR LOWER(l.company_name) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')) " +
            "     OR LOWER(l.lead_id) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%'))) " +
-           "AND (:status IS NULL OR l.status = CAST(:status AS lead_status))",
+           "AND (:status IS NULL OR l.status = CAST(:status AS lead_status)) " +
+           "AND (:salesRepId IS NULL OR l.sales_rep_id = :salesRepId)",
            nativeQuery = true)
-    Page<Lead> findAllActive(@Param("search") String search, @Param("status") String status, Pageable pageable);
+    Page<Lead> findAllActive(@Param("search") String search, @Param("status") String status,
+                              @Param("salesRepId") Long salesRepId, Pageable pageable);
 
     Optional<Lead> findByLeadIdAndIsDeletedFalse(String leadId);
 

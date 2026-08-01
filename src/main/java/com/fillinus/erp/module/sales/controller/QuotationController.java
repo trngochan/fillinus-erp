@@ -38,15 +38,16 @@ public class QuotationController {
         return ResponseEntity.ok(ApiResponse.ok("Quotation created successfully.", quotationService.createFromOpportunity(opportunityId, request, userId, isPrivilegedRole(auth))));
     }
 
-    @Operation(summary = "Get quotations", description = "SALE reps see quotations assigned to them only; ADMIN/MANAGER see all. Paginated + searchable by Quotation No/Customer.")
+    @Operation(summary = "Get quotations", description = "SALE reps see quotations assigned to them only; ADMIN/MANAGER see all. Paginated + searchable by Quotation No/Customer, filterable by Status.")
     @GetMapping("/quotations")
     public ResponseEntity<ApiResponse<PageResponse<QuotationResponse>>> getMyQuotations(
             Authentication auth,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", quotationService.getMyQuotations(viewerSalesRepId, search, page, size)));
+        return ResponseEntity.ok(ApiResponse.ok("Success", quotationService.getMyQuotations(viewerSalesRepId, search, status, page, size)));
     }
 
     @Operation(summary = "Get quotation by ID", description = "SALE reps can only view their own; ADMIN/MANAGER can view any.")

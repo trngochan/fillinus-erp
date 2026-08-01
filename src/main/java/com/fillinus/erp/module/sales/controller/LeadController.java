@@ -35,14 +35,15 @@ public class LeadController {
     private final UserRepository userRepository;
 
     /** BUSINESS-01: Search leads */
-    @Operation(summary = "Search leads", description = "Filter by search term and/or status. Returns active non-converted leads, paginated.")
+    @Operation(summary = "Search leads", description = "Filter by search term, status and/or Sales Rep. Returns active non-converted leads, paginated.")
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<LeadResponse>>> getLeads(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long salesRepId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLeads(search, status, page, size)));
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLeads(search, status, salesRepId, page, size)));
     }
 
     /** BUSINESS-03: View lead detail */

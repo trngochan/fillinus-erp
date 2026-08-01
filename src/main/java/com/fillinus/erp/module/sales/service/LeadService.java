@@ -33,10 +33,10 @@ public class LeadService {
     private final UserRepository userRepository;
 
     // ─── BUSINESS-01: Search Leads ────────────────────────────────────────────
-    public PageResponse<LeadResponse> getLeads(String search, String status, int page, int size) {
+    public PageResponse<LeadResponse> getLeads(String search, String status, Long salesRepId, int page, int size) {
         String searchParam = (search != null && search.isBlank()) ? null : search;
         String statusParam = (status != null && (status.isBlank() || status.equalsIgnoreCase("ALL"))) ? null : status;
-        Page<Lead> result = leadRepository.findAllActive(searchParam, statusParam, PageRequest.of(page, size));
+        Page<Lead> result = leadRepository.findAllActive(searchParam, statusParam, salesRepId, PageRequest.of(page, size));
         return PageResponse.of(result.map(this::toResponse));
     }
 

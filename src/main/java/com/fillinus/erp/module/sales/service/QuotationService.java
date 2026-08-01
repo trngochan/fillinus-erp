@@ -110,9 +110,10 @@ public class QuotationService {
      * filter resolved by the controller from the caller's role: the caller's own userId for a
      * SALE rep (mine-only), or {@code null} for ADMIN/MANAGER (see all).
      */
-    public PageResponse<QuotationResponse> getMyQuotations(Long viewerSalesRepId, String search, int page, int size) {
+    public PageResponse<QuotationResponse> getMyQuotations(Long viewerSalesRepId, String search, String status, int page, int size) {
         String searchParam = (search != null && search.isBlank()) ? null : search;
-        Page<Quotation> result = quotationRepository.findMine(viewerSalesRepId, searchParam, PageRequest.of(page, size));
+        String statusParam = (status != null && (status.isBlank() || status.equalsIgnoreCase("ALL"))) ? null : status;
+        Page<Quotation> result = quotationRepository.findMine(viewerSalesRepId, searchParam, statusParam, PageRequest.of(page, size));
         result.getContent().forEach(this::applyExpiryIfNeeded);
         return PageResponse.of(result.map(this::toResponse));
     }
