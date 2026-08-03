@@ -24,16 +24,16 @@ public interface DealNegotiationRepository extends JpaRepository<DealNegotiation
            "AND (:search IS NULL OR LOWER(dn.negotiation_no) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')) " +
            "     OR LOWER(dn.customer) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')) " +
            "     OR LOWER(q.quotation_no) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%'))) " +
-           "AND (:meetingDateFrom IS NULL OR dn.meeting_date >= :meetingDateFrom) " +
-           "AND (:meetingDateTo IS NULL OR dn.meeting_date <= :meetingDateTo) " +
+           "AND (CAST(:meetingDateFrom AS date) IS NULL OR dn.meeting_date >= CAST(:meetingDateFrom AS date)) " +
+           "AND (CAST(:meetingDateTo AS date) IS NULL OR dn.meeting_date <= CAST(:meetingDateTo AS date)) " +
            "ORDER BY dn.created_at DESC",
            countQuery = "SELECT COUNT(*) FROM deal_negotiations dn JOIN quotations q ON q.id = dn.quotation_id " +
            "WHERE dn.is_deleted = false AND (:salesRepId IS NULL OR dn.sales_rep_id = :salesRepId) " +
            "AND (:search IS NULL OR LOWER(dn.negotiation_no) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')) " +
            "     OR LOWER(dn.customer) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')) " +
            "     OR LOWER(q.quotation_no) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%'))) " +
-           "AND (:meetingDateFrom IS NULL OR dn.meeting_date >= :meetingDateFrom) " +
-           "AND (:meetingDateTo IS NULL OR dn.meeting_date <= :meetingDateTo)",
+           "AND (CAST(:meetingDateFrom AS date) IS NULL OR dn.meeting_date >= CAST(:meetingDateFrom AS date)) " +
+           "AND (CAST(:meetingDateTo AS date) IS NULL OR dn.meeting_date <= CAST(:meetingDateTo AS date))",
            nativeQuery = true)
     Page<DealNegotiation> findMine(@Param("salesRepId") Long salesRepId, @Param("search") String search,
                                     @Param("meetingDateFrom") LocalDate meetingDateFrom, @Param("meetingDateTo") LocalDate meetingDateTo,
