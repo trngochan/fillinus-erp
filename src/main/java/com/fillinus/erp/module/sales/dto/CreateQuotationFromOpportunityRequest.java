@@ -3,6 +3,7 @@ package com.fillinus.erp.module.sales.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ public class CreateQuotationFromOpportunityRequest {
     /** VND / USD — defaults to VND if omitted */
     private String currency;
 
+    @Size(max = 500, message = "Remark must be at most 500 characters")
     private String remark;
 
     @NotEmpty(message = "Enter a Unit Price for every detail line")

@@ -4,6 +4,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -16,9 +18,11 @@ import java.util.List;
 @Data
 public class CreateOpportunityRequest {
     @NotBlank(message = "Opportunity Name is required")
+    @Size(max = 255, message = "Opportunity Name must be at most 255 characters")
     private String opportunityName;
 
     @NotBlank(message = "Customer is required")
+    @Size(max = 255, message = "Customer must be at most 255 characters")
     private String customer;
 
     @NotNull(message = "Sales Rep is required")
@@ -27,6 +31,7 @@ public class CreateOpportunityRequest {
     /** PROSPECTING / QUALIFICATION / PROPOSAL / NEGOTIATION / CLOSED_WON / CLOSED_LOST */
     private String stage;
 
+    @PositiveOrZero(message = "Expected Revenue must be >= 0")
     private BigDecimal expectedRevenue;
     private String description;
 

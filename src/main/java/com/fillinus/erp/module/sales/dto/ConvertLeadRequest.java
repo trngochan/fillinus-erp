@@ -4,6 +4,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -19,11 +21,13 @@ import java.util.List;
 @Data
 public class ConvertLeadRequest {
     @NotBlank(message = "Opportunity Name is required")
+    @Size(max = 255, message = "Opportunity Name must be at most 255 characters")
     private String opportunityName;
 
     @NotBlank(message = "Project Type is required")
     private String projectType; // Agency / Label / Others
 
+    @PositiveOrZero(message = "Expected Deal Value must be >= 0")
     private BigDecimal expectedDealValue;
 
     @NotNull(message = "Sales Rep is required")
