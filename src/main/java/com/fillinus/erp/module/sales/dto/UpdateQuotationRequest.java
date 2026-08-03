@@ -1,6 +1,7 @@
 package com.fillinus.erp.module.sales.dto;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -23,5 +24,6 @@ public class UpdateQuotationRequest {
     private String currency;
     private String remark;
 
+    @NotEmpty(message = "Enter at least one Detail line")
     private List<@Valid QuotationDetailRequest> details;
 }

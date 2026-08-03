@@ -66,17 +66,22 @@ public class LeadService {
     }
 
     // ─── BUSINESS-03: View Lead ───────────────────────────────────────────────
-    public LeadResponse getLead(Long id) {
+    /** {@code viewerSalesRepId} null (ADMIN/MANAGER) skips the ownership check. */
+    public LeadResponse getLead(Long id, Long viewerSalesRepId) {
         Lead lead = findActiveLead(id);
+        if (viewerSalesRepId != null && !viewerSalesRepId.equals(lead.getSalesRepId())) {
+            throw new RuntimeException("You can only access your own leads.");
+        }
         return toResponse(lead);
     }
 
     // ─── BUSINESS-04: Edit Lead ───────────────────────────────────────────────
     private static final List<String> USER_EDITABLE_STATUSES = List.of("NEW", "IN_PROGRESS", "REJECTED");
 
+    /** {@code privileged} (ADMIN/MANAGER) bypasses the ownership check. */
     @Transactional
-    public LeadResponse updateLead(Long id, CreateLeadRequest request, Long currentUserId) {
-        Lead lead = findActiveLead(id);
+    public LeadResponse updateLead(Long id, CreateLeadRequest request, Long currentUserId, boolean privileged) {
+        Lead lead = findOwnedLead(id, currentUserId, privileged);
         validateUniquePhoneEmail(request.getPhone(), request.getEmail(), id);
         // Lead ID (leadId) is immutable per BR-001
         lead.setLeadName(request.getLeadName());
@@ -100,9 +105,10 @@ public class LeadService {
     }
 
     // ─── BUSINESS-05: Soft Delete Lead ────────────────────────────────────────
+    /** {@code privileged} (ADMIN/MANAGER) bypasses the ownership check. */
     @Transactional
-    public void deleteLead(Long id, Long currentUserId) {
-        Lead lead = findActiveLead(id);
+    public void deleteLead(Long id, Long currentUserId, boolean privileged) {
+        Lead lead = findOwnedLead(id, currentUserId, privileged);
         lead.setIsDeleted(true);  // BR-005: soft delete only
         lead.setUpdatedBy(currentUserId);
         leadRepository.save(lead);
@@ -110,9 +116,10 @@ public class LeadService {
     }
 
     // ─── BUSINESS-06: Convert Lead to Opportunity ────────────────────────────
+    /** {@code privileged} (ADMIN/MANAGER) bypasses the ownership check. */
     @Transactional
-    public OpportunityResponse convertLead(Long id, ConvertLeadRequest request, Long currentUserId) {
-        Lead lead = findActiveLead(id);
+    public OpportunityResponse convertLead(Long id, ConvertLeadRequest request, Long currentUserId, boolean privileged) {
+        Lead lead = findOwnedLead(id, currentUserId, privileged);
 
         // V1.1: Rejected leads can never be converted; otherwise convert is allowed any
         // number of times — one Lead can produce many Opportunities (BR-004).
@@ -181,6 +188,15 @@ public class LeadService {
                 .orElseThrow(() -> new RuntimeException("Lead not found: " + id));
         if (Boolean.TRUE.equals(lead.getIsDeleted())) {
             throw new RuntimeException("Lead not found: " + id);
+        }
+        return lead;
+    }
+
+    /** {@code privileged} (ADMIN/MANAGER) bypasses the ownership check. */
+    private Lead findOwnedLead(Long id, Long currentUserId, boolean privileged) {
+        Lead lead = findActiveLead(id);
+        if (!privileged && !currentUserId.equals(lead.getSalesRepId())) {
+            throw new RuntimeException("You can only access your own leads.");
         }
         return lead;
     }

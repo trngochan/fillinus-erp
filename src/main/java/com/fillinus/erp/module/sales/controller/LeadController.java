@@ -35,22 +35,25 @@ public class LeadController {
     private final UserRepository userRepository;
 
     /** BUSINESS-01: Search leads */
-    @Operation(summary = "Search leads", description = "Filter by search term, status and/or Sales Rep. Returns active non-converted leads, paginated.")
+    @Operation(summary = "Search leads", description = "SALE reps see leads assigned to them only; ADMIN/MANAGER see all and may filter by any Sales Rep. Filter by search term, status and/or Sales Rep. Returns active non-converted leads, paginated.")
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<LeadResponse>>> getLeads(
+            Authentication auth,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long salesRepId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLeads(search, status, salesRepId, page, size)));
+        Long effectiveSalesRepId = isPrivilegedRole(auth) ? salesRepId : resolveUserId(auth);
+        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLeads(search, status, effectiveSalesRepId, page, size)));
     }
 
     /** BUSINESS-03: View lead detail */
-    @Operation(summary = "Get lead by ID")
+    @Operation(summary = "Get lead by ID", description = "SALE reps can only view their own; ADMIN/MANAGER can view any.")
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<LeadResponse>> getLead(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLead(id)));
+    public ResponseEntity<ApiResponse<LeadResponse>> getLead(@PathVariable Long id, Authentication auth) {
+        Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
+        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLead(id, viewerSalesRepId)));
     }
 
     /** BUSINESS-02: Create lead manually */
@@ -63,32 +66,32 @@ public class LeadController {
     }
 
     /** BUSINESS-04: Edit lead */
-    @Operation(summary = "Update lead", description = "Lead ID (leadId) is immutable (BR-001). Updated_by is logged (BR-006).")
+    @Operation(summary = "Update lead", description = "SALE reps can only update their own; ADMIN/MANAGER can update any. Lead ID (leadId) is immutable (BR-001). Updated_by is logged (BR-006).")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<LeadResponse>> updateLead(
             @PathVariable Long id,
             @Valid @RequestBody CreateLeadRequest request,
             Authentication auth) {
-        return ResponseEntity.ok(ApiResponse.ok("Lead updated successfully.", leadService.updateLead(id, request, resolveUserId(auth))));
+        return ResponseEntity.ok(ApiResponse.ok("Lead updated successfully.", leadService.updateLead(id, request, resolveUserId(auth), isPrivilegedRole(auth))));
     }
 
     /** BUSINESS-05: Soft delete lead (BR-005) */
-    @Operation(summary = "Delete lead", description = "Soft-deletes a lead. Data kept for audit trail (BR-005, BR-006).")
+    @Operation(summary = "Delete lead", description = "SALE reps can only delete their own; ADMIN/MANAGER can delete any. Soft-deletes a lead. Data kept for audit trail (BR-005, BR-006).")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteLead(@PathVariable Long id, Authentication auth) {
-        leadService.deleteLead(id, resolveUserId(auth));
+        leadService.deleteLead(id, resolveUserId(auth), isPrivilegedRole(auth));
         return ResponseEntity.ok(ApiResponse.ok("Lead deleted.", null));
     }
 
     /** BUSINESS-06: Convert lead to Opportunity (V1.1: collects Opportunity Name/Project Type/Expected Deal Value/Sales Rep) */
     @Operation(summary = "Convert lead to Opportunity",
-               description = "Creates Opportunity assigned to the given Sales Rep. Marks lead QUALIFIED. Convert is allowed multiple times unless the lead is Rejected.")
+               description = "SALE reps can only convert their own; ADMIN/MANAGER can convert any. Creates Opportunity assigned to the given Sales Rep. Marks lead QUALIFIED. Convert is allowed multiple times unless the lead is Rejected.")
     @PostMapping("/{id}/convert")
     public ResponseEntity<ApiResponse<OpportunityResponse>> convertLead(
             @PathVariable Long id,
             @Valid @RequestBody ConvertLeadRequest request,
             Authentication auth) {
-        return ResponseEntity.ok(ApiResponse.ok("Lead converted to Opportunity.", leadService.convertLead(id, request, resolveUserId(auth))));
+        return ResponseEntity.ok(ApiResponse.ok("Lead converted to Opportunity.", leadService.convertLead(id, request, resolveUserId(auth), isPrivilegedRole(auth))));
     }
 
     /** Import leads from Excel */
@@ -116,5 +119,11 @@ public class LeadController {
         return userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"))
                 .getId();
+    }
+
+    /** ADMIN/MANAGER see/act on all leads; other roles (SALE etc.) are scoped to their own. */
+    private boolean isPrivilegedRole(Authentication auth) {
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_MANAGER"));
     }
 }
