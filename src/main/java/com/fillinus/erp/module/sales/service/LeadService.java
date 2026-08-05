@@ -52,7 +52,7 @@ public class LeadService {
                 .contactPerson(request.getContactPerson())
                 .phone(request.getPhone())
                 .email(request.getEmail())
-                .source(request.getSource())
+                .source(blankToNull(request.getSource()))
                 .salesRepId(request.getSalesRepId())
                 .remark(request.getRemark())
                 .status("NEW")
@@ -89,7 +89,7 @@ public class LeadService {
         lead.setContactPerson(request.getContactPerson());
         lead.setPhone(request.getPhone());
         lead.setEmail(request.getEmail());
-        lead.setSource(request.getSource());
+        lead.setSource(blankToNull(request.getSource()));
         lead.setSalesRepId(request.getSalesRepId());
         lead.setRemark(request.getRemark());
         if (request.getStatus() != null) {
@@ -183,6 +183,11 @@ public class LeadService {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
+    /** Source is an optional Postgres native enum column — "" must become NULL, or the ?::lead_source cast fails. */
+    private String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value;
+    }
+
     private Lead findActiveLead(Long id) {
         Lead lead = leadRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Lead not found: " + id));

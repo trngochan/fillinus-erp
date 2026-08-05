@@ -34,7 +34,8 @@ public class CreateLeadRequest {
     @Size(max = 255, message = "Email must be at most 255 characters")
     private String email;
 
-    /** New Client / Existing Client / Referral / Digital Lead */
+    /** New Client / Existing Client / Referral / Digital Lead — optional, blank allowed */
+    @Pattern(regexp = "^$|New Client|Existing Client|Referral|Digital Lead", message = "Source must be one of: New Client, Existing Client, Referral, Digital Lead")
     private String source;
 
     @NotNull(message = "Sales Rep is required")
