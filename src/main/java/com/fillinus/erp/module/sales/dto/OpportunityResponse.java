@@ -13,6 +13,8 @@ public class OpportunityResponse {
     private Long id;
     private String opportunityId;
     private Long leadId;
+    /** BUG_SALE-001 #11: which Lead this Opportunity was converted from (null if created directly) */
+    private String leadName;
     private String opportunityName;
     private String customer;
     private Long salesRepId;

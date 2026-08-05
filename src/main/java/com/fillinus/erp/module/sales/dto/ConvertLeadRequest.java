@@ -33,6 +33,12 @@ public class ConvertLeadRequest {
     @NotNull(message = "Sales Rep is required")
     private Long salesRepId;
 
+    /** PROSPECTING / QUALIFICATION / PROPOSAL / NEGOTIATION / CLOSED_WON / CLOSED_LOST — defaults to Prospecting if omitted (SAL-002 Popup Create default) */
+    private String stage;
+
+    /** SAL-002 Popup Create Opportunity field — combined with the Project Type note */
+    private String description;
+
     @NotEmpty(message = "Add at least one Service/Product detail")
     private List<@Valid OpportunityDetailRequest> details;
 }

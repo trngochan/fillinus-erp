@@ -28,4 +28,8 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
            "     OR LOWER(o.customer) LIKE LOWER(CONCAT('%',CAST(:search AS text),'%')))",
            nativeQuery = true)
     Page<Opportunity> findMine(@Param("salesRepId") Long salesRepId, @Param("search") String search, Pageable pageable);
+
+    /** BUG_SALE-001 #11: prevent two Opportunities from sharing the exact same name. */
+    boolean existsByOpportunityNameIgnoreCase(String opportunityName);
+    boolean existsByOpportunityNameIgnoreCaseAndIdNot(String opportunityName, Long id);
 }

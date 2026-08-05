@@ -7,6 +7,7 @@ import com.fillinus.erp.module.sales.dto.*;
 import com.fillinus.erp.module.sales.entity.Lead;
 import com.fillinus.erp.module.sales.entity.Opportunity;
 import com.fillinus.erp.module.sales.entity.OpportunityDetail;
+import com.fillinus.erp.module.sales.repository.LeadRepository;
 import com.fillinus.erp.module.sales.repository.OpportunityRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,7 @@ public class OpportunityService {
 
     private final OpportunityRepository opportunityRepository;
     private final UserRepository userRepository;
+    private final LeadRepository leadRepository;
 
     /**
      * Created when a Lead is converted (SAL-001 V1.1 BUSINESS-06). "projectType" has no
@@ -41,15 +43,18 @@ public class OpportunityService {
      */
     @Transactional
     public OpportunityResponse createFromLead(Lead lead, Long currentUserId, ConvertLeadRequest request) {
+        validateUniqueName(request.getOpportunityName(), null);
+        String description = "Project Type: " + request.getProjectType()
+                + (request.getDescription() != null && !request.getDescription().isBlank() ? "\n" + request.getDescription() : "");
         Opportunity opp = Opportunity.builder()
                 .opportunityId(generateOpportunityId())
                 .leadId(lead.getId())
                 .opportunityName(request.getOpportunityName())
                 .customer(lead.getCompanyName())
                 .salesRepId(request.getSalesRepId())
-                .stage("PROSPECTING")
+                .stage(request.getStage() != null ? request.getStage() : "PROSPECTING")
                 .expectedRevenue(request.getExpectedDealValue() != null ? request.getExpectedDealValue() : BigDecimal.ZERO)
-                .description("Project Type: " + request.getProjectType())
+                .description(description)
                 .lifecycleStatus("OPEN")
                 .build();
         applyDetails(opp, request.getDetails());
@@ -61,6 +66,7 @@ public class OpportunityService {
     /** Business-02: direct create (not via Lead conversion) */
     @Transactional
     public OpportunityResponse createDirect(CreateOpportunityRequest request, Long currentUserId) {
+        validateUniqueName(request.getOpportunityName(), null);
         Opportunity opp = Opportunity.builder()
                 .opportunityId(generateOpportunityId())
                 .opportunityName(request.getOpportunityName())
@@ -109,6 +115,7 @@ public class OpportunityService {
         if (!"OPEN".equals(opp.getLifecycleStatus())) {
             throw new RuntimeException("This opportunity has already been converted to quotation.");
         }
+        validateUniqueName(request.getOpportunityName(), id);
         opp.setOpportunityName(request.getOpportunityName());
         opp.setCustomer(request.getCustomer());
         opp.setSalesRepId(request.getSalesRepId());
@@ -164,8 +171,25 @@ public class OpportunityService {
         return String.format("OPP-%04d", count);
     }
 
+    /**
+     * BUG_SALE-001 #11: a Lead can convert into many Opportunities, so a name collision is
+     * easy to hit by accident (e.g. re-using the same Convert popup default) — block it.
+     * {@code excludeId} is the Opportunity's own id on update (skip comparing against itself).
+     */
+    private void validateUniqueName(String opportunityName, Long excludeId) {
+        boolean taken = excludeId == null
+                ? opportunityRepository.existsByOpportunityNameIgnoreCase(opportunityName)
+                : opportunityRepository.existsByOpportunityNameIgnoreCaseAndIdNot(opportunityName, excludeId);
+        if (taken) {
+            throw new RuntimeException("An Opportunity named \"" + opportunityName + "\" already exists. Please use a different name.");
+        }
+    }
+
     private OpportunityResponse toResponse(Opportunity opp) {
         String salesRepName = userRepository.findById(opp.getSalesRepId()).map(User::getFullName).orElse(null);
+        String leadName = opp.getLeadId() != null
+                ? leadRepository.findById(opp.getLeadId()).map(Lead::getLeadName).orElse(null)
+                : null;
         List<OpportunityDetailResponse> details = opp.getDetails().stream()
                 .map(d -> OpportunityDetailResponse.builder()
                         .id(d.getId())
@@ -179,6 +203,7 @@ public class OpportunityService {
                 .id(opp.getId())
                 .opportunityId(opp.getOpportunityId())
                 .leadId(opp.getLeadId())
+                .leadName(leadName)
                 .opportunityName(opp.getOpportunityName())
                 .customer(opp.getCustomer())
                 .salesRepId(opp.getSalesRepId())
