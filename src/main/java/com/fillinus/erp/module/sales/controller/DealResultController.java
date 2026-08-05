@@ -38,23 +38,20 @@ public class DealResultController {
         return ResponseEntity.ok(ApiResponse.ok("Deal Result recorded.", dealResultService.createFromNegotiation(id, request, userId, isPrivilegedRole(auth))));
     }
 
-    @Operation(summary = "Get deal results", description = "SALE reps see their own only; ADMIN/MANAGER see all. Paginated + searchable by Negotiation No/Quotation No/Opportunity/Customer, filterable by Deal Result.")
+    @Operation(summary = "Get deal results", description = "View All — any authenticated user sees every Deal Result. Paginated + searchable by Negotiation No/Quotation No/Opportunity/Customer, filterable by Deal Result.")
     @GetMapping("/deal-results")
     public ResponseEntity<ApiResponse<PageResponse<DealResultResponse>>> getMyDealResults(
-            Authentication auth,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String result,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", dealResultService.getMyDealResults(viewerSalesRepId, search, result, page, size)));
+        return ResponseEntity.ok(ApiResponse.ok("Success", dealResultService.getMyDealResults(null, search, result, page, size)));
     }
 
-    @Operation(summary = "Get deal result by ID", description = "SALE reps can only view their own; ADMIN/MANAGER can view any. Read-only (BR-007).")
+    @Operation(summary = "Get deal result by ID", description = "View All — any authenticated user can view any Deal Result. Read-only (BR-007).")
     @GetMapping("/deal-results/{id}")
-    public ResponseEntity<ApiResponse<DealResultResponse>> getDealResult(@PathVariable Long id, Authentication auth) {
-        Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", dealResultService.getDealResult(id, viewerSalesRepId)));
+    public ResponseEntity<ApiResponse<DealResultResponse>> getDealResult(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Success", dealResultService.getDealResult(id, null)));
     }
 
     private Long resolveUserId(Authentication auth) {

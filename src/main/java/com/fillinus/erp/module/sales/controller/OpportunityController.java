@@ -38,24 +38,21 @@ public class OpportunityController {
         return ResponseEntity.ok(ApiResponse.ok("Opportunity created successfully.", opportunityService.createDirect(request, userId)));
     }
 
-    /** Get opportunities — SALE reps see their own only, ADMIN/MANAGER see all */
-    @Operation(summary = "Get opportunities", description = "SALE reps see opportunities assigned to them only; ADMIN/MANAGER see all. Paginated + searchable by Opportunity No/Name/Customer.")
+    /** Get opportunities — View All: every role sees every Opportunity */
+    @Operation(summary = "Get opportunities", description = "View All — any authenticated user sees every Opportunity. Edit/Delete remain ownership-restricted. Paginated + searchable by Opportunity No/Name/Customer.")
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<OpportunityResponse>>> getMyOpportunities(
-            Authentication auth,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", opportunityService.getMyOpportunities(viewerSalesRepId, search, page, size)));
+        return ResponseEntity.ok(ApiResponse.ok("Success", opportunityService.getMyOpportunities(null, search, page, size)));
     }
 
     /** View opportunity detail */
-    @Operation(summary = "Get opportunity by ID", description = "SALE reps can only view their own; ADMIN/MANAGER can view any.")
+    @Operation(summary = "Get opportunity by ID", description = "View All — any authenticated user can view any Opportunity. Edit/Delete remain ownership-restricted.")
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<OpportunityResponse>> getOpportunity(@PathVariable Long id, Authentication auth) {
-        Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", opportunityService.getOpportunity(id, viewerSalesRepId)));
+    public ResponseEntity<ApiResponse<OpportunityResponse>> getOpportunity(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Success", opportunityService.getOpportunity(id, null)));
     }
 
     /** Business-04: Edit Header + Detail lines — blocked once converted to Quotation */

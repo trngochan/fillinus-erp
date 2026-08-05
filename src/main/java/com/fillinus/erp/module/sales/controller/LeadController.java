@@ -35,25 +35,22 @@ public class LeadController {
     private final UserRepository userRepository;
 
     /** BUSINESS-01: Search leads */
-    @Operation(summary = "Search leads", description = "SALE reps see leads assigned to them only; ADMIN/MANAGER see all and may filter by any Sales Rep. Filter by search term, status and/or Sales Rep. Returns active non-converted leads, paginated.")
+    @Operation(summary = "Search leads", description = "All roles see every Lead (View All); the Sales Rep param is an optional filter, not an ownership scope. Filter by search term, status and/or Sales Rep. Returns active non-converted leads, paginated.")
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<LeadResponse>>> getLeads(
-            Authentication auth,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long salesRepId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Long effectiveSalesRepId = isPrivilegedRole(auth) ? salesRepId : resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLeads(search, status, effectiveSalesRepId, page, size)));
+        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLeads(search, status, salesRepId, page, size)));
     }
 
     /** BUSINESS-03: View lead detail */
-    @Operation(summary = "Get lead by ID", description = "SALE reps can only view their own; ADMIN/MANAGER can view any.")
+    @Operation(summary = "Get lead by ID", description = "View All — any authenticated user can view any Lead. Edit/Delete/Convert remain ownership-restricted.")
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<LeadResponse>> getLead(@PathVariable Long id, Authentication auth) {
-        Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLead(id, viewerSalesRepId)));
+    public ResponseEntity<ApiResponse<LeadResponse>> getLead(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Success", leadService.getLead(id, null)));
     }
 
     /** BUSINESS-02: Create lead manually */

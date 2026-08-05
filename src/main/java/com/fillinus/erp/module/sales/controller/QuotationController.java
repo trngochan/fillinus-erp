@@ -40,23 +40,20 @@ public class QuotationController {
         return ResponseEntity.ok(ApiResponse.ok("Quotation created successfully.", quotationService.createFromOpportunity(opportunityId, request, userId, isPrivilegedRole(auth))));
     }
 
-    @Operation(summary = "Get quotations", description = "SALE reps see quotations assigned to them only; ADMIN/MANAGER see all. Paginated + searchable by Quotation No/Customer, filterable by Status.")
+    @Operation(summary = "Get quotations", description = "View All — any authenticated user sees every Quotation. Edit/Delete remain ownership-restricted. Paginated + searchable by Quotation No/Customer, filterable by Status.")
     @GetMapping("/quotations")
     public ResponseEntity<ApiResponse<PageResponse<QuotationResponse>>> getMyQuotations(
-            Authentication auth,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", quotationService.getMyQuotations(viewerSalesRepId, search, status, page, size)));
+        return ResponseEntity.ok(ApiResponse.ok("Success", quotationService.getMyQuotations(null, search, status, page, size)));
     }
 
-    @Operation(summary = "Get quotation by ID", description = "SALE reps can only view their own; ADMIN/MANAGER can view any.")
+    @Operation(summary = "Get quotation by ID", description = "View All — any authenticated user can view any Quotation. Edit/Delete remain ownership-restricted.")
     @GetMapping("/quotations/{id}")
-    public ResponseEntity<ApiResponse<QuotationResponse>> getQuotation(@PathVariable Long id, Authentication auth) {
-        Long viewerSalesRepId = isPrivilegedRole(auth) ? null : resolveUserId(auth);
-        return ResponseEntity.ok(ApiResponse.ok("Success", quotationService.getQuotation(id, viewerSalesRepId)));
+    public ResponseEntity<ApiResponse<QuotationResponse>> getQuotation(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Success", quotationService.getQuotation(id, null)));
     }
 
     @Operation(summary = "Update quotation", description = "SALE reps can only update their own; ADMIN/MANAGER can update any. BR-006: only allowed while Status = Draft.")

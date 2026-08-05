@@ -7,6 +7,7 @@ import lombok.Data;
 @Data
 @Builder
 public class LoginResponse {
+    private Long    id;
     private String  accessToken;
     private String  tokenType;
     private Long    expiresIn;   // seconds

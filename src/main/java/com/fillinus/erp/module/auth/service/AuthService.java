@@ -73,6 +73,7 @@ public class AuthService {
         log.info("New SALE user registered: {}", user.getUsername());
 
         return LoginResponse.builder()
+                .id(user.getId())
                 .accessToken(token)
                 .tokenType("Bearer")
                 .expiresIn(jwtUtil.getExpirationMs() / 1000)
@@ -109,6 +110,7 @@ public class AuthService {
         String token = jwtUtil.generateToken(user.getUsername(), role);
 
         return LoginResponse.builder()
+                .id(user.getId())
                 .accessToken(token)
                 .tokenType("Bearer")
                 .expiresIn(jwtUtil.getExpirationMs() / 1000)
