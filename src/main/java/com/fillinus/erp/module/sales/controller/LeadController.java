@@ -80,6 +80,14 @@ public class LeadController {
         return ResponseEntity.ok(ApiResponse.ok("Lead deleted.", null));
     }
 
+    /** BUG_SALE-001 #4: bulk delete */
+    @Operation(summary = "Bulk delete leads", description = "Soft-deletes multiple leads at once. Same ownership rule as single delete — SALE reps can only delete their own; ADMIN/MANAGER can delete any.")
+    @PostMapping("/bulk-delete")
+    public ResponseEntity<ApiResponse<Void>> bulkDeleteLeads(@RequestBody List<Long> ids, Authentication auth) {
+        leadService.bulkDeleteLeads(ids, resolveUserId(auth), isPrivilegedRole(auth));
+        return ResponseEntity.ok(ApiResponse.ok(ids.size() + " lead(s) deleted.", null));
+    }
+
     /** BUSINESS-06: Convert lead to Opportunity (V1.1: collects Opportunity Name/Project Type/Expected Deal Value/Sales Rep) */
     @Operation(summary = "Convert lead to Opportunity",
                description = "SALE reps can only convert their own; ADMIN/MANAGER can convert any. Creates Opportunity assigned to the given Sales Rep. Marks lead QUALIFIED. Convert is allowed multiple times unless the lead is Rejected.")

@@ -115,6 +115,14 @@ public class LeadService {
         log.info("Lead soft-deleted: {} by userId={}", lead.getLeadId(), currentUserId);
     }
 
+    /** BUG_SALE-001 #4: soft-delete multiple leads in one call — same ownership rule as single delete. */
+    @Transactional
+    public void bulkDeleteLeads(List<Long> ids, Long currentUserId, boolean privileged) {
+        for (Long id : ids) {
+            deleteLead(id, currentUserId, privileged);
+        }
+    }
+
     // ─── BUSINESS-06: Convert Lead to Opportunity ────────────────────────────
     /** {@code privileged} (ADMIN/MANAGER) bypasses the ownership check. */
     @Transactional
@@ -210,6 +218,12 @@ public class LeadService {
         String salesRepName = lead.getSalesRepId() != null
                 ? userRepository.findById(lead.getSalesRepId()).map(User::getFullName).orElse(null)
                 : null;
+        String createdByName = lead.getCreatedBy() != null
+                ? userRepository.findById(lead.getCreatedBy()).map(User::getFullName).orElse(null)
+                : null;
+        String updatedByName = lead.getUpdatedBy() != null
+                ? userRepository.findById(lead.getUpdatedBy()).map(User::getFullName).orElse(null)
+                : null;
         return LeadResponse.builder()
                 .id(lead.getId())
                 .leadId(lead.getLeadId())
@@ -224,6 +238,9 @@ public class LeadService {
                 .salesRepName(salesRepName)
                 .remark(lead.getRemark())
                 .createdBy(lead.getCreatedBy())
+                .createdByName(createdByName)
+                .updatedBy(lead.getUpdatedBy())
+                .updatedByName(updatedByName)
                 .createdAt(lead.getCreatedAt())
                 .updatedAt(lead.getUpdatedAt())
                 .build();

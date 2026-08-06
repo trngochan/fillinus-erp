@@ -21,6 +21,9 @@ public class LeadResponse {
     private String salesRepName;
     private String remark;
     private Long createdBy;
+    private String createdByName;
+    private Long updatedBy;
+    private String updatedByName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
